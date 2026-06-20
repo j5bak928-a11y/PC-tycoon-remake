@@ -164,7 +164,7 @@ tk.Button(frame_actions, text="🎮 ONTWERP GPU", command=lambda: open_gpu_venst
 btn_research = tk.Button(frame_actions, text="", command=upgrade_tech, font=("Segoe UI", 9, "bold"), bg="#9b59b6", fg="#ffffff", bd=0, width=20, pady=4, cursor="hand2")
 btn_research.pack(side="left", padx=10)
 
-listbox_producten = tk.Listbox(frame_tab_portfolio, bg="#1a1a1e", fg="#ffffff", bd=0, font=("Consolas", 10), highlightthickness=1, highlightbackground="#2a2a30", padding=10)
+listbox_producten = tk.Listbox(frame_tab_portfolio, bg="#1a1a1e", fg="#ffffff", bd=0, font=("Consolas", 10), highlightthickness=1, highlightbackground="#2a2a30")
 listbox_producten.pack(fill="both", expand=True, pady=10)
 
 # TAB: ONDERZOEK (PLACEHOLDER)

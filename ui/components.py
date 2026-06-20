@@ -5,7 +5,7 @@ from tkinter import messagebox
 def open_ontwerp_venster(root, engine, update_callback):
     venster_cpu = tk.Toplevel(root)
     venster_cpu.title("Nieuwe CPU Ontwerpen")
-    venster_cpu.geometry("420x520")
+    venster_cpu.geometry("420x540")
     venster_cpu.configure(bg="#121214")
     venster_cpu.resizable(False, False)
     
@@ -42,9 +42,9 @@ def open_ontwerp_venster(root, engine, update_callback):
                 messagebox.showerror("Fout", "Je overschrijdt de limieten van je Tech-Level!")
                 return
             
-            kosten = int((cores * 5000) + (speed * 8000) + (cache * 1500) + (120000 / nm))
+            kosten = engine.bereken_cpu_kosten(cores, speed, cache, nm)
             if kosten > engine.geld:
-                messagebox.showerror("Fout", f"Niet genoeg geld! Kosten: ${kosten:,}")
+                messagebox.showerror("Fout", f"Niet genoeg geld! R&D kosten: ${kosten:,}")
                 return
                 
             engine.geld -= kosten
@@ -53,7 +53,7 @@ def open_ontwerp_venster(root, engine, update_callback):
             })
             update_callback()
             venster_cpu.destroy()
-            messagebox.showinfo("Succes", f"'{naam}' gelanceerd! Kosten: -${kosten:,}")
+            messagebox.showinfo("Succes", f"'{naam}' gelanceerd! R&D Kosten: -${kosten:,}")
         except ValueError:
             messagebox.showerror("Fout", "Vul alle velden correct in!")
 
@@ -100,9 +100,9 @@ def open_gpu_venster(root, engine, update_callback):
                 messagebox.showerror("Fout", "Je overschrijdt de limieten van je Tech-Level!")
                 return
             
-            kosten = int((vram * 6000) + (speed * 9000) + (shaders * 20) + (120000 / nm))
+            kosten = engine.bereken_gpu_kosten(vram, speed, shaders, nm)
             if kosten > engine.geld:
-                messagebox.showerror("Fout", f"Niet genoeg geld! Kosten: ${kosten:,}")
+                messagebox.showerror("Fout", f"Niet genoeg geld! R&D kosten: ${kosten:,}")
                 return
                 
             engine.geld -= kosten
@@ -111,7 +111,7 @@ def open_gpu_venster(root, engine, update_callback):
             })
             update_callback()
             venster_gpu.destroy()
-            messagebox.showinfo("Succes", f"'{naam}' gelanceerd! Kosten: -${kosten:,}")
+            messagebox.showinfo("Succes", f"'{naam}' gelanceerd! R&D Kosten: -${kosten:,}")
         except ValueError:
             messagebox.showerror("Fout", "Vul alle velden correct in!")
 

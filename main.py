@@ -9,6 +9,10 @@ from modules.staff import OFFICES, genereer_sollicitant
 game = GameEngine()
 huidige_tab = None
 
+# Productielijn state
+actieve_productie = None
+progress_waarde = 0.0
+
 def switch_tab(tab_naam):
     global huidige_tab
     if huidige_tab:
@@ -38,6 +42,74 @@ def start_bedrijf():
     frame_game.pack(fill="both", expand=True)
     switch_tab("dashboard")
 
+# --- ANIMATIE & PRODUCTIELIJN LOGICA ---
+def start_productie_animatie(project_data, kosten):
+    global actieve_productie, progress_waarde
+    actieve_productie = project_data
+    progress_waarde = 0.0
+    
+    # Maak de productielijn UI zichtbaar en vul basistekst
+    frame_productie_lijn.pack(fill="x", pady=(30, 0))
+    lbl_productie_titel.config(text=f"🏭 FABRICEERD: {project_data['naam']} ({project_data['type']})")
+    
+    # Bereken bouwsnelheid op basis van personeelsefficiëntie
+    engineers = [e for e in game.personeel if e.rol == "Engineer"]
+    efficiency_bonus = sum(e.efficientie for e in engineers) / len(engineers) if engineers else 100
+    
+    # Basis bouwtijd is 4 seconden, engineers versnellen dit
+    totale_stappen = 100
+    tick_snelheid_ms = max(15, int(40 - (efficiency_bonus - 100) * 0.2)) 
+    
+    animate_progress(tick_snelheid_ms)
+    update_ui()
+    messagebox.showinfo("R&D Gestart", f"Ontwikkeling van '{project_data['naam']}' gestart!\nInvesteringskosten: -${kosten:,}\n\nBekijk de voortgang live op je Dashboard.")
+
+def draw_rounded_progress(canvas, w, h, progress, bg_color="#1a1a1e", fill_color="#007acc"):
+    canvas.delete("all")
+    # Teken achtergrond capsule (rounded corners)
+    canvas.create_oval(5, 5, 5+h-10, h-5, fill=bg_color, outline="")
+    canvas.create_oval(w-h+5, 5, w-5, h-5, fill=bg_color, outline="")
+    canvas.create_rectangle(5+(h-10)/2, 5, w-5-(h-10)/2, h-5, fill=bg_color, outline="")
+    
+    # Teken voortgang capsule
+    if progress > 0.02:
+        max_vulling_w = w - 10
+        huidige_w = max(h-10, max_vulling_w * progress)
+        
+        # Bepaal dynamische kleur op basis van type product
+        kleur = fill_color if actieve_productie and actieve_productie["type"] == "CPU" else "#e67e22"
+        
+        canvas.create_oval(5, 5, 5+h-10, h-5, fill=kleur, outline="")
+        canvas.create_oval(5+huidige_w-(h-10), 5, 5+huidige_w, h-5, fill=kleur, outline="")
+        canvas.create_rectangle(5+(h-10)/2, 5, 5+huidige_w-(h-10)/2, h-5, fill=kleur, outline="")
+
+def animate_progress(speed_ms):
+    global progress_waarde, actieve_productie
+    if actieve_productie is None:
+        return
+        
+    progress_waarde += 0.01
+    
+    # Update de afgeronde canvas progressbar
+    draw_rounded_progress(canvas_progress, 500, 30, progress_waarde)
+    lbl_progress_pct.config(text=f"{int(progress_waarde * 100)}%")
+    
+    if progress_waarde >= 1.0:
+        # Productie voltooid! Voeg toe aan portfolio
+        if actieve_productie["type"] == "CPU":
+            game.ontworpen_cpus.append(actieve_productie)
+        else:
+            game.ontworpen_gpus.append(actieve_productie)
+            
+        messagebox.showinfo("Productie Afgerond! 🎉", f"Gefeliciteerd! '{actieve_productie['naam']}' is succesvol geproduceerd en direct op de markt uitgebracht!")
+        actieve_productie = None
+        frame_productie_lijn.pack_forget()
+        update_ui()
+    else:
+        # Volgende frame triggeren
+        root.after(speed_ms, lambda: animate_progress(speed_ms))
+
+# --- OVERIGE FUNCTIES ---
 def hire_employee(rol):
     max_p = OFFICES[game.office_index]["max_personeel"]
     if len(game.personeel) >= max_p:
@@ -46,8 +118,6 @@ def hire_employee(rol):
         
     emp = game.sollicitanten[rol]
     game.personeel.append(emp)
-    
-    # Direct nieuwe sollicitant klaarzetten
     game.sollicitanten[rol] = genereer_sollicitant(rol)
     update_ui()
     messagebox.showinfo("Personeel", f"{emp.naam} is succesvol aangenomen als {rol}!")
@@ -70,24 +140,20 @@ def upgrade_kantoor():
             messagebox.showerror("Fout", "Onvoldoende liquide middelen voor deze verhuizing!")
 
 def update_ui():
-    # Update Topbar
     label_status.config(text=f"🏢 {game.bedrijfsnaam.upper()} HQ   |   🔬 TECH-LEVEL: {game.tech_level}   |   📊 CONCURRENTIE: {game.markt_standaard:.1f}")
     label_datum.config(text=f"📅 M{game.maand} - {game.jaar} ")
     
-    # Update Dashboard Tab Stat-Cards
     label_card_geld.config(text=f"${game.geld:,}", fg="#2ecc71" if game.geld > 0 else "#e74c3c")
     label_card_cpus.config(text=f"{len(game.ontworpen_cpus)} stuks")
     label_card_gpus.config(text=f"{len(game.ontworpen_gpus)} stuks")
     btn_research.config(text=f"🔬 UPGRADE TECH\nKosten: ${game.tech_level * 50000:,}")
     
-    # Update Portfolio Tab Listbox
     listbox_producten.delete(0, tk.END)
     for cpu in game.ontworpen_cpus:
         listbox_producten.insert(tk.END, f" ⚙️ [CPU] {cpu['naam'].ljust(14)} | Cores: {str(cpu['cores']).ljust(2)} | Speed: {str(cpu['speed']).ljust(4)} GHz | Cache: {str(cpu['cache']).ljust(3)}MB | Node: {str(cpu['nm']).ljust(2)}nm | Prijs: ${str(cpu['prijs']).ljust(4)} | Totaal Verkocht: {str(cpu['totaal_verkocht']).ljust(6)} stuks")
     for gpu in game.ontworpen_gpus:
         listbox_producten.insert(tk.END, f" 🎮 [GPU] {gpu['naam'].ljust(14)} | VRAM: {str(gpu['vram']).ljust(2)}GB | Speed: {str(gpu['speed']).ljust(4)} GHz | Shaders: {str(gpu['shaders']).ljust(4)} | Node: {str(gpu['nm']).ljust(2)}nm | Prijs: ${str(gpu['prijs']).ljust(4)} | Totaal Verkocht: {str(gpu['totaal_verkocht']).ljust(6)} stuks")
 
-    # Update Bedrijf Management Tab
     huidig_kantoor = OFFICES[game.office_index]
     lbl_kantoor_info.config(text=f"📍 Huidige Locatie: {huidig_kantoor['naam']}\n👥 Personeel: {len(game.personeel)} / {huidig_kantoor['max_personeel']}\n💸 Maandelijkse Huur: ${huidig_kantoor['huur']:,}")
     
@@ -101,19 +167,20 @@ def update_ui():
     for e in game.personeel:
         listbox_personeel.insert(tk.END, f" 👤 {e.naam.ljust(20)} | Rol: {e.rol.ljust(10)} | Salaris: ${str(e.salaris).ljust(5)}/m | Loyaliteit: {e.loyaliteit}% | Efficiëntie: {e.efficientie}%")
         
-    # Update Vacature Bank Labels
     eng = game.sollicitanten["Engineer"]
     lbl_vacature_eng.config(text=f"🛠️ {eng.naam}\nSalarisvraag: ${eng.salaris:,}/m\nEfficiëntie: {eng.efficientie}%")
     mkt = game.sollicitanten["Marketeer"]
     lbl_vacature_mkt.config(text=f"📢 {mkt.naam}\nSalarisvraag: ${mkt.salaris:,}/m\nEfficiëntie: {mkt.efficientie}%")
 
 def volgende_maand():
+    if actieve_productie is not None:
+        messagebox.showwarning("Productie Loopt", "Wacht tot je huidige chip gefabriceerd is voordat je de maand doorspoelt!")
+        return
     rapport, netto = game.volgende_maand()
     update_ui()
     
     popup = tk.Toplevel(root)
     popup.title("Maandafsluiting")
-    popup.geometry("520 rounded x420")
     popup.geometry("520x420")
     popup.configure(bg="#1a1a1e")
     popup.resizable(False, False)
@@ -182,11 +249,10 @@ tk.Button(frame_sidebar, text="⏭️ VOLGENDE MAAND", command=volgende_maand, f
 frame_content = tk.Frame(frame_game, bg="#121214", padx=30, pady=30)
 frame_content.pack(fill="both", expand=True, side="right")
 
-# --- DEFINIEER DE TABS ---
-
-# TAB: DASHBOARD
+# --- TAB: DASHBOARD (OPGEVULD & GEANIMEERD) ---
 frame_tab_dashboard = tk.Frame(frame_content, bg="#121214")
 tk.Label(frame_tab_dashboard, text="HOOFD DASHBOARD", font=("Segoe UI", 16, "bold"), fg="#ffffff", bg="#121214").pack(anchor="w", pady=(0,20))
+
 frame_cards_container = tk.Frame(frame_tab_dashboard, bg="#121214")
 frame_cards_container.pack(fill="x")
 
@@ -205,19 +271,37 @@ card_cpus.pack(side="left", padx=20)
 card_gpus, label_card_gpus = create_stat_card(frame_cards_container, "GPU'S IN PORTFOLIO")
 card_gpus.pack(side="left", padx=20)
 
+# NIEUW: Dit paneel vult de leegte op het dashboard en huisvest de geanimeerde productielijn
+frame_productie_lijn = tk.Frame(frame_tab_dashboard, bg="#1a1a1e", highlightthickness=1, highlightbackground="#2a2a30", padx=25, pady=25)
+# Start onzichtbaar totdat er echt geproduceerd wordt
+frame_productie_lijn.pack_forget()
+
+lbl_productie_titel = tk.Label(frame_productie_lijn, text="", font=("Segoe UI", 12, "bold"), fg="#ffffff", bg="#1a1a1e")
+lbl_productie_titel.pack(anchor="w", pady=(0,10))
+
+frame_progress_container = tk.Frame(frame_productie_lijn, bg="#1a1a1e")
+frame_progress_container.pack(fill="x", anchor="w")
+
+# De Canvas die de rounded corners progressbar tekent
+canvas_progress = tk.Canvas(frame_progress_container, width=500, height=30, bg="#1a1a1e", bd=0, highlightthickness=0)
+canvas_progress.pack(side="left", anchor="w")
+
+lbl_progress_pct = tk.Label(frame_progress_container, text="0%", font=("Segoe UI", 11, "bold"), fg="#a0a0a5", bg="#1a1a1e", padx=15)
+lbl_progress_pct.pack(side="left")
+
 # TAB: PORTFOLIO
 frame_tab_portfolio = tk.Frame(frame_content, bg="#121214")
 tk.Label(frame_tab_portfolio, text="PRODUCTENPORTFOLIO", font=("Segoe UI", 16, "bold"), fg="#ffffff", bg="#121214").pack(anchor="w")
 frame_actions = tk.Frame(frame_tab_portfolio, bg="#121214", pady=15)
 frame_actions.pack(fill="x")
-tk.Button(frame_actions, text="🛠️ ONTWERP CPU", command=lambda: open_ontwerp_venster(root, game, update_ui), font=("Segoe UI", 10, "bold"), bg="#007acc", fg="#ffffff", bd=0, width=18, pady=10, cursor="hand2").pack(side="left", padx=(0,10))
-tk.Button(frame_actions, text="🎮 ONTWERP GPU", command=lambda: open_gpu_venster(root, game, update_ui), font=("Segoe UI", 10, "bold"), bg="#e67e22", fg="#ffffff", bd=0, width=18, pady=10, cursor="hand2").pack(side="left", padx=10)
+tk.Button(frame_actions, text="🛠️ ONTWERP CPU", command=lambda: open_ontwerp_venster(root, game, start_productie_animatie), font=("Segoe UI", 10, "bold"), bg="#007acc", fg="#ffffff", bd=0, width=18, pady=10, cursor="hand2").pack(side="left", padx=(0,10))
+tk.Button(frame_actions, text="🎮 ONTWERP GPU", command=lambda: open_gpu_venster(root, game, start_productie_animatie), font=("Segoe UI", 10, "bold"), bg="#e67e22", fg="#ffffff", bd=0, width=18, pady=10, cursor="hand2").pack(side="left", padx=10)
 btn_research = tk.Button(frame_actions, text="", command=upgrade_tech, font=("Segoe UI", 9, "bold"), bg="#9b59b6", fg="#ffffff", bd=0, width=20, pady=4, cursor="hand2")
 btn_research.pack(side="left", padx=10)
 listbox_producten = tk.Listbox(frame_tab_portfolio, bg="#1a1a1e", fg="#ffffff", bd=0, font=("Consolas", 10), highlightthickness=1, highlightbackground="#2a2a30")
 listbox_producten.pack(fill="both", expand=True, pady=10)
 
-# TAB: BEDRIJF MANAGEMENT (NIEUW)
+# TAB: BEDRIJF MANAGEMENT
 frame_tab_bedrijf = tk.Frame(frame_content, bg="#121214")
 tk.Label(frame_tab_bedrijf, text="BEDRIJFSMANAGEMENT & PERSONEEL", font=("Segoe UI", 16, "bold"), fg="#ffffff", bg="#121214").pack(anchor="w", pady=(0,15))
 
@@ -231,7 +315,6 @@ frame_bedrijf_rechts = tk.Frame(frame_bedrijf_split, bg="#1a1a1e", highlightthic
 frame_bedrijf_rechts.pack(side="right", fill="y")
 frame_bedrijf_rechts.pack_propagate(False)
 
-# Links content: Office Card & Personeelslijst
 frame_kantoor_card = tk.Frame(frame_bedrijf_links, bg="#1a1a1e", padx=15, pady=15, highlightthickness=1, highlightbackground="#2a2a30")
 frame_kantoor_card.pack(fill="x", pady=(0,15))
 lbl_kantoor_info = tk.Label(frame_kantoor_card, text="", font=("Segoe UI", 10, "bold"), fg="#ffffff", bg="#1a1a1e", justify="left")
@@ -243,7 +326,6 @@ tk.Label(frame_bedrijf_links, text="WERKNEMERS OVERZICHT", font=("Segoe UI", 10,
 listbox_personeel = tk.Listbox(frame_bedrijf_links, bg="#1a1a1e", fg="#ffffff", bd=0, font=("Consolas", 10), highlightthickness=1, highlightbackground="#2a2a30")
 listbox_personeel.pack(fill="both", expand=True)
 
-# Rechts content: Vacatures
 tk.Label(frame_bedrijf_rechts, text="VACATURE BANK", font=("Segoe UI", 12, "bold"), fg="#007acc", bg="#1a1a1e").pack(anchor="w", pady=(0,15))
 
 frame_vac_eng = tk.Frame(frame_bedrijf_rechts, bg="#121214", padx=10, pady=10, highlightthickness=1, highlightbackground="#2a2a30")
@@ -258,13 +340,10 @@ lbl_vacature_mkt = tk.Label(frame_vac_mkt, text="", font=("Segoe UI", 9), fg="#f
 lbl_vacature_mkt.pack(anchor="w")
 tk.Button(frame_vac_mkt, text="AANNEMEN AS MARKETEER 📢", font=("Segoe UI", 8, "bold"), command=lambda: hire_employee("Marketeer"), bg="#2ecc71", fg="#121214", bd=0, pady=4, cursor="hand2").pack(fill="x", pady=(8,0))
 
-# PLACEHOLDERS VOOR OVERIGE TABS
+# PLACEHOLDERS
 frame_tab_research = tk.Frame(frame_content, bg="#121214")
 tk.Label(frame_tab_research, text="RESEARCH & DEVELOPMENT (TECH TREE)", font=("Segoe UI", 16, "bold"), fg="#ffffff", bg="#121214").pack(anchor="w", pady=(0,10))
-tk.Label(frame_tab_research, text="Hier komt in de volgende fase de interactieve Tech Tree met ontgrendelbare nodes.", font=("Segoe UI", 11), fg="#a0a0a5", bg="#121214").pack(anchor="w")
-
 frame_tab_finance = tk.Frame(frame_content, bg="#121214")
 tk.Label(frame_tab_finance, text="FINANCIEEL DASHBOARD", font=("Segoe UI", 16, "bold"), fg="#ffffff", bg="#121214").pack(anchor="w", pady=(0,10))
-tk.Label(frame_tab_finance, text="Hier komen historische winstgrafieken en de beurs-opties.", font=("Segoe UI", 11), fg="#a0a0a5", bg="#121214").pack(anchor="w")
 
 root.mainloop()

@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import messagebox
 
-def open_ontwerp_venster(root, engine, update_callback):
+def open_ontwerp_venster(root, engine, start_productie_callback):
     venster_cpu = tk.Toplevel(root)
     venster_cpu.title("Nieuwe CPU Ontwerpen")
     venster_cpu.geometry("420x540")
@@ -48,19 +48,22 @@ def open_ontwerp_venster(root, engine, update_callback):
                 return
                 
             engine.geld -= kosten
-            engine.ontworpen_cpus.append({
-                "naam": naam, "cores": cores, "speed": speed, "cache": cache, "nm": nm, "prijs": prijs, "totaal_verkocht": 0, "leeftijd": 0
-            })
-            update_callback()
+            
+            # Maak het project-object aan en stuur naar de productielijn
+            project_data = {
+                "type": "CPU", "naam": naam, "cores": cores, "speed": speed, "cache": cache, "nm": nm, "prijs": prijs, "totaal_verkocht": 0, "leeftijd": 0
+            }
+            
             venster_cpu.destroy()
-            messagebox.showinfo("Succes", f"'{naam}' gelanceerd! R&D Kosten: -${kosten:,}")
+            start_productie_callback(project_data, kosten)
+            
         except ValueError:
             messagebox.showerror("Fout", "Vul alle velden correct in!")
 
-    tk.Button(venster_cpu, text="LANCEER CPU 🚀", font=("Segoe UI", 11, "bold"), command=lanseer_cpu, bg="#2ecc71", fg="#121214", bd=0, cursor="hand2").pack(fill="x", padx=40, pady=20, ipady=6)
+    tk.Button(venster_cpu, text="START R&D & PRODUCTIE 🚀", font=("Segoe UI", 11, "bold"), command=lanseer_cpu, bg="#2ecc71", fg="#121214", bd=0, cursor="hand2").pack(fill="x", padx=40, pady=20, ipady=6)
 
 
-def open_gpu_venster(root, engine, update_callback):
+def open_gpu_venster(root, engine, start_productie_callback):
     venster_gpu = tk.Toplevel(root)
     venster_gpu.title("Nieuwe GPU Ontwerpen")
     venster_gpu.geometry("420x520")
@@ -106,13 +109,16 @@ def open_gpu_venster(root, engine, update_callback):
                 return
                 
             engine.geld -= kosten
-            engine.ontworpen_gpus.append({
-                "naam": naam, "vram": vram, "speed": speed, "shaders": shaders, "nm": nm, "prijs": prijs, "totaal_verkocht": 0, "leeftijd": 0
-            })
-            update_callback()
+            
+            # Maak het project-object aan en stuur naar de productielijn
+            project_data = {
+                "type": "GPU", "naam": naam, "vram": vram, "speed": speed, "shaders": shaders, "nm": nm, "prijs": prijs, "totaal_verkocht": 0, "leeftijd": 0
+            }
+            
             venster_gpu.destroy()
-            messagebox.showinfo("Succes", f"'{naam}' gelanceerd! R&D Kosten: -${kosten:,}")
+            start_productie_callback(project_data, kosten)
+            
         except ValueError:
             messagebox.showerror("Fout", "Vul alle velden correct in!")
 
-    tk.Button(venster_gpu, text="LANCEER GPU 🚀", font=("Segoe UI", 11, "bold"), command=lanseer_gpu, bg="#e67e22", fg="#121214", bd=0, cursor="hand2").pack(fill="x", padx=40, pady=20, ipady=6)
+    tk.Button(venster_gpu, text="START R&D & PRODUCTIE 🚀", font=("Segoe UI", 11, "bold"), command=lanseer_gpu, bg="#e67e22", fg="#121214", bd=0, cursor="hand2").pack(fill="x", padx=40, pady=20, ipady=6)
